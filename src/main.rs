@@ -1,7 +1,6 @@
 use std::fs;
 
 use image::imageops::FilterType;
-use image::codecs::tga::TgaEncoder;
 use image::{DynamicImage, RgbaImage};
 use webp_animation::{Decoder, Encoder, EncodingConfig};
 use rayon::prelude::*;
