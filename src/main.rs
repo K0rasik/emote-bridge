@@ -36,7 +36,7 @@ fn upscale_webp(input_path: &str, output_path: &str) -> Result<(), Box<dyn std::
     .map(|(data, timestamp)| {
         let rgba = RgbaImage::from_raw(width, height, data).unwrap();
         let img = DynamicImage::ImageRgba8(rgba);
-        let upscaled = img.resize(new_width, new_height, FilterType::Lanczos3);
+        let upscaled = img.resize(new_width, new_height, FilterType::CatmullRom);
         (upscaled, timestamp) 
     })
     .collect();
@@ -58,7 +58,7 @@ fn upscale_webp(input_path: &str, output_path: &str) -> Result<(), Box<dyn std::
 
 fn main() {
     let input_path = "noshot.webp";
-    let output_path = "4upscaled_output.webp";
+    let output_path = "5upscaled_output.webp";
 
     match upscale_webp(input_path, output_path) {
         Ok(_) => println!("Изображение успешно апскейлено!"),
