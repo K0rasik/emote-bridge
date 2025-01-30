@@ -1,0 +1,14 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+      {
+        "type": "lldb",
+        "request": "launch",
+        "name": "Debug Release Build",
+        "program": "${workspaceFolder}/target/release/emote-bridge",
+        "args": ["noshot.webp", "noshot512.webp"],
+        "cwd": "${workspaceFolder}",
+        "preLaunchTask": "rust: cargo build --release"
+      }
+    ]
+  }

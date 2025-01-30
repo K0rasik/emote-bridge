@@ -1,66 +1,69 @@
+// src/main.rs
+
+mod webp_processor;
+mod avif_processor;
+mod avif_decoder;
+
+use std::env;
 use std::fs;
-
-use image::imageops::FilterType;
-use image::{DynamicImage, RgbaImage};
-use webp_animation::{Decoder, Encoder, EncodingConfig};
-use rayon::prelude::*;
-fn upscale_webp(input_path: &str, output_path: &str) -> Result<(), Box<dyn std::error::Error>> {
-    let file = std::fs::read(input_path)?;
-
-    let decoder = Decoder::new(&file)?;
-    //let mut final_timestamp: i32 = 0;
-    let width;
-    let height;
-    (width, height) = decoder.dimensions();
-    // Вычисляем новый размер (512 по большей стороне, сохраняя пропорции)
-    let (new_width, new_height) = if width > height {
-        let scale = 512.0 / width as f32;
-        (512, (height as f32 * scale) as u32)
-    } else {
-        let scale = 512.0 / height as f32;
-        ((width as f32 * scale) as u32, 512)
-    };
-    let config = EncodingConfig::new_lossy(50.0);
-    let mut encoder = Encoder::new((new_width, new_height)).unwrap();
-
-    // Собираем кадры с таймштампами в вектор
-    let frames: Vec<_> = decoder.into_iter().map(|frame| {
-        let timestamp = frame.timestamp();
-        let data = frame.data().to_vec();
-        (data, timestamp)
-    }).collect();
-    // Параллельно апскейлим кадры и сохраняем вектор апскейленных изображений с таймштампами
-    let upscaled_frames: Vec<_> = frames
-    .into_par_iter()
-    .map(|(data, timestamp)| {
-        let rgba = RgbaImage::from_raw(width, height, data).unwrap();
-        let img = DynamicImage::ImageRgba8(rgba);
-        let upscaled = img.resize(new_width, new_height, FilterType::CatmullRom);
-        (upscaled, timestamp) 
-    })
-    .collect();
-
-    let mut upscaled_frames = upscaled_frames;
-    upscaled_frames.sort_by_key(|&(_, timestamp)| timestamp);
-    let final_timestamp = upscaled_frames.last().map(|(_, ts)| *ts).unwrap_or(0);
-
-    for (frame_data, timestamp) in upscaled_frames {
-        encoder.add_frame_with_config(&frame_data.as_bytes(), timestamp, &config)?;
-    }
-
-    
-    let webp_data = encoder.finalize(final_timestamp)?;
-
-    fs::write(output_path, webp_data)?;
-    Ok(())
-}
+use webp_processor::WebpProcessor;
+use avif_processor::AvifProcessor;
+use avif_decoder::decode_avif;
 
 fn main() {
-    let input_path = "noshot.webp";
-    let output_path = "5upscaled_output.webp";
+    let args: Vec<String> = env::args().collect();
 
-    match upscale_webp(input_path, output_path) {
-        Ok(_) => println!("Изображение успешно апскейлено!"),
-        Err(e) => eprintln!("Error: {}", e),
+    if args.len() < 4 {
+        eprintln!("Usage: {} <input_path> <output_path> <format: webp|avif>", args[0]);
+        std::process::exit(1);
+    }
+
+    let input_path = &args[1];
+    let output_path = &args[2];
+    let format = &args[3];
+
+    match format.as_str() {
+        "webp" => {
+            match WebpProcessor::decode(input_path) {
+                Ok(mut processor) => {
+                    processor.upscale();
+                    println!("Собрали и заапскейлили");
+
+                    match processor.encode() {
+                        Ok(webp_data) => {
+                            if let Err(e) = fs::write(output_path, webp_data) {
+                                eprintln!("Failed to save file: {}", e);
+                            } else {
+                                println!("Изображение успешно апскейлено и сохранено в WEBP!");
+                            }
+                        }
+                        Err(e) => eprintln!("Error during WEBP encoding: {}", e),
+                    }
+                }
+                Err(e) => eprintln!("Error during WEBP decoding: {}", e),
+            }
+        }
+        "avif" => {
+            match decode_avif(input_path) {
+                Ok((frames, (width, height))) => {
+                    let mut avif_processor = AvifProcessor::new(frames, width, height);
+                    avif_processor.upscale();
+                    println!("Собрали и заапскейлили");
+
+                    match avif_processor.encode() {
+                        Ok(avif_data) => {
+                            if let Err(e) = fs::write(output_path, avif_data) {
+                                eprintln!("Failed to save file: {}", e);
+                            } else {
+                                println!("Изображение успешно апскейлено и сохранено в AVIF!");
+                            }
+                        }
+                        Err(e) => eprintln!("Error during AVIF encoding: {}", e),
+                    }
+                }
+                Err(e) => eprintln!("Error during AVIF decoding: {}", e),
+            }
+        }
+        _ => eprintln!("Unsupported format: {}", format),
     }
 }
