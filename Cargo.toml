@@ -5,9 +5,12 @@ edition = "2021"
 
 [dependencies]
 image = "0.25.5"
-ravif = "0.11.11"
 rayon = "1.10.0"
+webp = "0.3.0"
 webp-animation = "0.9.0"
+
+[build-dependencies]
+cc = "1.2.10"
 
 [profile.release]
 opt-level = 3        # Уменьшение уровня оптимизации (по умолчанию: 3)

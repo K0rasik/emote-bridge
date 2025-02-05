@@ -1,2 +1,5 @@
 /target
 *.webp
+emote.avif
+*.a
+*.o
